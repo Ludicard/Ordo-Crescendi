@@ -39,6 +39,29 @@ function extraerJson(texto: string): string {
   return bloque ? bloque[1] : t;
 }
 
+/**
+ * Al copiar desde un chat, el texto suele llegar con formato Markdown escapado
+ * (`\[`, `\]`, `\_`...) o con comillas tipográficas. Se intenta el JSON tal cual
+ * y, si falla, se repara eso y se reintenta. Si tampoco funciona, se lanza el
+ * error del texto original.
+ */
+function parsearTolerante(texto: string): unknown {
+  try {
+    return JSON.parse(texto);
+  } catch (original) {
+    const reparado = texto
+      // Quita la barra de escapes que JSON no admite; respeta \" \\ \/ \b \f \n \r \t \u.
+      .replace(/\\(.)/g, (todo, c: string) => ('"\\/bfnrtu'.includes(c) ? todo : c))
+      .replace(/[“”]/g, '"')
+      .replace(/ /g, ' ');
+    try {
+      return JSON.parse(reparado);
+    } catch {
+      throw original;
+    }
+  }
+}
+
 function esObjeto(v: unknown): v is Record<string, unknown> {
   return typeof v === 'object' && v !== null && !Array.isArray(v);
 }
@@ -53,9 +76,13 @@ export function analizarImportacion(
 ): ResultadoImportacion {
   let datos: unknown;
   try {
-    datos = JSON.parse(extraerJson(texto));
-  } catch {
-    return { ok: false, errores: ['El texto no es JSON válido.'] };
+    datos = parsearTolerante(extraerJson(texto));
+  } catch (e) {
+    const detalle = e instanceof Error ? ` (${e.message})` : '';
+    return {
+      ok: false,
+      errores: [`El texto no es JSON válido${detalle}. Pide a la IA que responda solo con el JSON en un bloque de código.`],
+    };
   }
   if (!esObjeto(datos)) return { ok: false, errores: ['El JSON debe ser un objeto { "version", "misiones" }.'] };
   if (datos.version !== VERSION_FORMATO) {

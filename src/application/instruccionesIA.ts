@@ -12,7 +12,8 @@ export function instruccionesParaIA(rutasExistentes: readonly string[], hoy: str
 Genera mis misiones y asigna tú la EXP de cada una según el progreso real que aporta
 (no por cantidad de tareas: una acción difícil y significativa vale más que una trivial).
 
-Responde SOLO con un JSON válido, sin texto adicional, con esta forma:
+Responde SOLO con un JSON válido dentro de un único bloque de código \`\`\`json, sin texto adicional
+(así se copia sin formato), con esta forma:
 
 {
   "version": ${VERSION_FORMATO},

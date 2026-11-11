@@ -14,7 +14,7 @@ import { ec, ids } from './ayudantes';
 function entorno(inicio: Date) {
   let ahora = inicio;
   const repo = new RepositorioMemoria();
-  const deps: Dependencias = { repo, reloj: () => ahora, nuevoId: ids() };
+  const deps: Dependencias = { repo, reloj: () => ahora, nuevoId: ids(), azar: () => 0 };
   return { repo, deps, mover: (d: Date) => (ahora = d) };
 }
 

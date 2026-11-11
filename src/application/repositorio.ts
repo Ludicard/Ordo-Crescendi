@@ -1,3 +1,4 @@
+import type { AsignacionCastigo, Castigo } from '../domain/castigos';
 import type { Mision, PlantillaRutina, Ruta } from '../domain/tipos';
 
 /** Puerto de persistencia. Lo implementa SQLite en la app y memoria en las pruebas. */
@@ -22,7 +23,20 @@ export interface Repositorio {
     nuevas: Mision[];
     generadas: { plantillaId: string; ultimoDiaGenerado: string }[];
     fallidas: string[];
+    asignaciones: AsignacionCastigo[];
   }): Promise<void>;
+
+  /** Castigos activos de la pool. */
+  listarCastigos(): Promise<Castigo[]>;
+  guardarCastigo(castigo: Castigo): Promise<void>;
+  archivarCastigo(id: string): Promise<void>;
+
+  /** Castigos asignados sin cumplir, del más antiguo al más reciente. */
+  asignacionesPendientes(): Promise<AsignacionCastigo[]>;
+  /** De las fechas dadas, las que ya tienen castigo asignado. */
+  fechasConAsignacion(fechas: string[]): Promise<Set<string>>;
+  obtenerAsignacion(id: string): Promise<AsignacionCastigo | null>;
+  actualizarAsignacion(asignacion: AsignacionCastigo): Promise<void>;
 
   /** Guarda en una sola transacción lo importado. */
   guardarImportacion(plan: { rutas: Ruta[]; plantillas: PlantillaRutina[]; misiones: Mision[] }): Promise<void>;

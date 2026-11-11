@@ -12,9 +12,15 @@ const tema = {
   colors: { ...DarkTheme.colors, background: color.fondo, card: color.panel, text: color.texto, primary: color.acento, border: color.bordeSuave },
 };
 
-const icono = (simbolo: string) => ({ color: c }: { color: ColorValue }) => (
-  <Text style={{ color: c, fontSize: 18 }}>{simbolo}</Text>
-);
+function Icono({ simbolo, color: c }: { simbolo: string; color: ColorValue }) {
+  return <Text style={{ color: c, fontSize: 18 }}>{simbolo}</Text>;
+}
+
+function icono(simbolo: string) {
+  return function IconoPestana({ color: c }: { color: ColorValue }) {
+    return <Icono simbolo={simbolo} color={c} />;
+  };
+}
 
 export default function Raiz() {
   return (
@@ -33,6 +39,7 @@ export default function Raiz() {
             }}
           >
             <Tabs.Screen name="index" options={{ title: 'Misiones', tabBarIcon: icono('◆') }} />
+            <Tabs.Screen name="castigos" options={{ title: 'Castigos', tabBarIcon: icono('✕') }} />
             <Tabs.Screen name="rutas" options={{ title: 'Rutas', tabBarIcon: icono('▲') }} />
             <Tabs.Screen name="importar" options={{ title: 'Importar', tabBarIcon: icono('⇩') }} />
           </Tabs>

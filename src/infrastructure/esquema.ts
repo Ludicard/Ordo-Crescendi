@@ -42,6 +42,26 @@ const MIGRACIONES: string[] = [
   CREATE INDEX misiones_fecha ON misiones (fecha);
   CREATE INDEX misiones_estado ON misiones (estado, fecha);
   `,
+  `
+  CREATE TABLE castigos (
+    id TEXT PRIMARY KEY NOT NULL,
+    texto TEXT NOT NULL,
+    archivado INTEGER NOT NULL DEFAULT 0,
+    creado_en TEXT NOT NULL
+  );
+  CREATE TABLE asignaciones_castigo (
+    id TEXT PRIMARY KEY NOT NULL,
+    fecha TEXT NOT NULL UNIQUE,
+    estado TEXT NOT NULL,
+    castigo_id TEXT REFERENCES castigos(id),
+    texto TEXT,
+    reroll_usado INTEGER NOT NULL DEFAULT 0,
+    creada_en TEXT NOT NULL,
+    girada_en TEXT,
+    cumplida_en TEXT
+  );
+  CREATE INDEX asignaciones_estado ON asignaciones_castigo (estado, fecha);
+  `,
 ];
 
 export async function migrar(db: SQLiteDatabase): Promise<void> {

@@ -12,9 +12,13 @@ El ciclo es ruta → misión → completar → progreso visible.
   y no suma EXP. El día cambia a medianoche, hora de Ecuador (UTC-5).
 - Las misiones se **importan desde un JSON** generado por una IA, que también asigna la EXP.
   El formato está en [docs/formato-misiones.md](docs/formato-misiones.md).
+- **Castigos**: una pool definida por el usuario. Si fallas misiones, ese día recibe un castigo
+  (como máximo uno por día) que se elige con una ruleta. El resultado se guarda al girar. Hay un
+  reroll por castigo y nunca devuelve el mismo. Mientras haya un castigo sin cumplir, no se
+  pueden completar misiones. Los castigos no quitan EXP. Con la pool vacía, fallar no asigna castigo.
 
-Fuera de este MVP: ascenso de rango, atributos, feats, castigos, día mínimo, puntos de
-recompensa, días de descanso y cartas.
+Fuera de este MVP: ascenso de rango, atributos, feats, día mínimo, puntos de recompensa,
+días de descanso y cartas.
 
 ## Ejecutar
 
@@ -40,7 +44,7 @@ src/
   application/     Casos de uso y el puerto Repositorio.
   infrastructure/  SQLite (esquema y migraciones) y repositorio en memoria para pruebas.
   ui/              Tema, componentes y hooks compartidos.
-  app/             Pantallas (Expo Router): Misiones, Rutas, Importar.
+  app/             Pantallas (Expo Router): Misiones, Castigos, Rutas, Importar.
 tests/             Pruebas con Vitest.
 ```
 
@@ -53,3 +57,13 @@ Decisiones:
 - Una misión `11:00` se puede completar hasta las 11:00:59.
 - Si la app no se abre algunos días, al abrirla se crean las rutinas de esos días y quedan fallidas.
 - Una rutina importada después de su hora límite empieza al día siguiente.
+- El bloqueo se calcula desde los datos (hay un castigo sin cumplir), no desde la interfaz.
+
+## Generar el APK
+
+```bash
+npx eas-cli@latest login
+npx eas-cli@latest build -p android --profile preview
+```
+
+EAS compila en la nube y da un enlace para descargar el `.apk`.

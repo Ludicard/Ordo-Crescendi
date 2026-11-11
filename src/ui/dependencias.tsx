@@ -9,7 +9,7 @@ const Contexto = createContext<Dependencias | null>(null);
 export function ProveedorDependencias({ children }: { children: ReactNode }) {
   const db = useSQLiteContext();
   const deps = useMemo<Dependencias>(
-    () => ({ repo: new RepositorioSqlite(db), reloj: () => new Date(), nuevoId: randomUUID }),
+    () => ({ repo: new RepositorioSqlite(db), reloj: () => new Date(), nuevoId: randomUUID, azar: Math.random }),
     [db],
   );
   return <Contexto.Provider value={deps}>{children}</Contexto.Provider>;

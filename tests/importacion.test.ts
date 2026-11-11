@@ -35,6 +35,18 @@ describe('importación de misiones', () => {
     expect(r.ok).toBe(true);
   });
 
+  it('acepta JSON copiado de un chat con Markdown escapado y comillas tipográficas', () => {
+    const copiado = JSON.stringify(ejemplo).replace(/\[/g, '\\[').replace(/\]/g, '\\]').replace(/_/g, '\\_');
+    expect(analizar(copiado).ok).toBe(true);
+    const tipograficas = '{ \u201Cversion\u201D: 1, \u201Cmisiones\u201D: [{ "titulo": "A", "tipo": "rutina", "exp": 1, "hora_limite": "22:00" }] }';
+    expect(analizar(tipograficas).ok).toBe(true);
+  });
+
+  it('respeta los escapes válidos dentro de textos', () => {
+    const r = analizar({ version: 1, misiones: [{ titulo: 'Leer "Hábitos"\\n', tipo: 'rutina', exp: 1, hora_limite: '22:00' }] });
+    expect(r.ok && r.plan.plantillas[0].titulo).toBe('Leer "Hábitos"\\n');
+  });
+
   it('no duplica una ruta referenciada varias veces', () => {
     const r = analizar({
       version: 1,

@@ -1,5 +1,5 @@
 import { useFocusEffect } from 'expo-router';
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 /**
  * Carga datos al enfocar la pantalla y los refresca periódicamente, para que
@@ -9,7 +9,9 @@ export function useCarga<T>(cargar: () => Promise<T>, intervaloMs = 30_000) {
   const [datos, setDatos] = useState<T | null>(null);
   const [error, setError] = useState<string | null>(null);
   const cargarRef = useRef(cargar);
-  cargarRef.current = cargar;
+  useEffect(() => {
+    cargarRef.current = cargar;
+  }, [cargar]);
 
   const recargar = useCallback(async () => {
     try {

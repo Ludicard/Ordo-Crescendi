@@ -1,7 +1,9 @@
+import { router } from 'expo-router';
 import { Alert, FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
 import {
   completar,
   eliminarMisionPendiente,
+  estadoCastigos,
   misionesDeHoy,
   rutasConProgreso,
 } from '../application/casosDeUso';
@@ -21,8 +23,9 @@ const ETIQUETA_TIPO: Record<Mision['tipo'], string> = {
 export default function PantallaMisiones() {
   const deps = useDependencias();
   const { datos, error, recargar } = useCarga(async () => {
-    const [misiones, rutas] = await Promise.all([misionesDeHoy(deps), rutasConProgreso(deps)]);
-    return { misiones, nombreRuta: new Map(rutas.map((r) => [r.id, r.nombre])) };
+    const misiones = await misionesDeHoy(deps);
+    const [rutas, castigos] = await Promise.all([rutasConProgreso(deps), estadoCastigos(deps)]);
+    return { misiones, castigos, nombreRuta: new Map(rutas.map((r) => [r.id, r.nombre])) };
   });
 
   const alCompletar = async (m: Mision) => {
@@ -51,6 +54,7 @@ export default function PantallaMisiones() {
 
   const misiones = datos?.misiones ?? [];
   const hechas = misiones.filter((m) => m.estado === 'completada').length;
+  const bloqueado = datos?.castigos.bloqueado ?? false;
 
   return (
     <FlatList
@@ -65,6 +69,13 @@ export default function PantallaMisiones() {
               {hechas} / {misiones.length} completadas
             </Text>
           </Ventana>
+          {bloqueado ? (
+            <Pressable onPress={() => router.navigate('/castigos')}>
+              <Ventana titulo="CASTIGO PENDIENTE" estilo={estilos.bloqueo}>
+                <Text style={estilos.textoBloqueo}>Misiones bloqueadas. Toca aquí para ir a la ruleta.</Text>
+              </Ventana>
+            </Pressable>
+          ) : null}
           <MensajeError texto={error} />
         </>
       }
@@ -73,6 +84,7 @@ export default function PantallaMisiones() {
         <TarjetaMision
           mision={item}
           ruta={item.rutaId ? datos?.nombreRuta.get(item.rutaId) : undefined}
+          bloqueado={bloqueado}
           onCompletar={() => alCompletar(item)}
           onMantener={() => alMantener(item)}
         />
@@ -84,11 +96,13 @@ export default function PantallaMisiones() {
 function TarjetaMision({
   mision: m,
   ruta,
+  bloqueado,
   onCompletar,
   onMantener,
 }: {
   mision: Mision;
   ruta?: string;
+  bloqueado: boolean;
   onCompletar: () => void;
   onMantener: () => void;
 }) {
@@ -106,7 +120,7 @@ function TarjetaMision({
       <View style={estilos.lado}>
         <Text style={estilos.exp}>{ruta ? `+${m.exp} EXP` : ''}</Text>
         {m.estado === 'pendiente' ? (
-          <Boton texto="Completar" onPress={onCompletar} />
+          <Boton texto={bloqueado ? 'Bloqueada' : 'Completar'} onPress={onCompletar} deshabilitado={bloqueado} />
         ) : (
           <Text style={{ color: colorEstado, fontWeight: '700' }}>
             {m.estado === 'completada' ? 'COMPLETADA' : 'FALLIDA'}
@@ -119,6 +133,8 @@ function TarjetaMision({
 
 const estilos = StyleSheet.create({
   contenido: { padding: 16 },
+  bloqueo: { borderColor: color.fallo, shadowColor: color.fallo },
+  textoBloqueo: { color: color.fallo, textAlign: 'center', fontWeight: '700' },
   fecha: { color: color.tenue, textAlign: 'center' },
   resumen: { color: color.texto, textAlign: 'center', fontSize: 18, fontWeight: '700', marginTop: 4 },
   tarjeta: {

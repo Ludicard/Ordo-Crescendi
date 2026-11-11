@@ -1,3 +1,15 @@
+import {
+  asignacionesNuevas,
+  crearCastigo,
+  cumplir,
+  girar,
+  hayBloqueo,
+  puedeReroll,
+  reroll,
+  type AsignacionCastigo,
+  type Azar,
+  type Castigo,
+} from '../domain/castigos';
 import { diaLocal } from '../domain/fechas';
 import { analizarImportacion, type ResultadoImportacion } from '../domain/importacion';
 import {
@@ -14,11 +26,13 @@ export interface Dependencias {
   repo: Repositorio;
   reloj: () => Date;
   nuevoId: GeneradorId;
+  azar: Azar;
 }
 
 /**
  * Pone el día al corriente: genera las misiones de rutinas que falten y marca
- * como fallidas las pendientes que ya vencieron. Es idempotente.
+ * como fallidas las pendientes que ya vencieron, y asigna un castigo (sin girar)
+ * a cada día con misiones recién fallidas. Es idempotente.
  */
 export async function sincronizarDia({ repo, reloj, nuevoId }: Dependencias): Promise<void> {
   const ahora = reloj();
@@ -33,8 +47,15 @@ export async function sincronizarDia({ repo, reloj, nuevoId }: Dependencias): Pr
   }
   const pendientes = [...(await repo.misionesPendientesHasta(diaLocal(ahora))), ...nuevas];
   const fallidas = misionesAFallar(pendientes, ahora);
+  let asignaciones: AsignacionCastigo[] = [];
+  if (fallidas.length) {
+    const idsFallidas = new Set(fallidas);
+    const fechas = [...new Set(pendientes.filter((m) => idsFallidas.has(m.id)).map((m) => m.fecha))];
+    const hayPool = (await repo.listarCastigos()).length > 0;
+    asignaciones = asignacionesNuevas(fechas, await repo.fechasConAsignacion(fechas), hayPool, ahora, nuevoId);
+  }
   if (nuevas.length || fallidas.length) {
-    await repo.guardarSincronizacion({ nuevas, generadas, fallidas });
+    await repo.guardarSincronizacion({ nuevas, generadas, fallidas, asignaciones });
   }
 }
 
@@ -45,6 +66,9 @@ export async function misionesDeHoy(deps: Dependencias): Promise<Mision[]> {
 
 export async function completar(deps: Dependencias, misionId: string): Promise<Mision> {
   await sincronizarDia(deps);
+  if (hayBloqueo(await deps.repo.asignacionesPendientes())) {
+    throw new ErrorDominio('Tienes un castigo pendiente. Cúmplelo para desbloquear las misiones.');
+  }
   const m = await deps.repo.obtenerMision(misionId);
   if (!m) throw new ErrorDominio('La misión no existe.');
   const completada = completarMision(m, deps.reloj());
@@ -103,4 +127,65 @@ export async function rutinasActivas({ repo }: Dependencias) {
 /** Deja de generar la rutina. Las misiones ya creadas se conservan. */
 export async function archivarRutina({ repo }: Dependencias, plantillaId: string): Promise<void> {
   await repo.archivarPlantilla(plantillaId);
+}
+
+// ---------- Castigos ----------
+
+export interface EstadoCastigos {
+  /** El castigo a resolver ahora (el más antiguo sin cumplir), o null. */
+  actual: AsignacionCastigo | null;
+  /** Castigos sin cumplir en total (incluido el actual). */
+  pendientes: number;
+  bloqueado: boolean;
+  puedeReroll: boolean;
+  pool: Castigo[];
+}
+
+export async function estadoCastigos(deps: Dependencias): Promise<EstadoCastigos> {
+  await sincronizarDia(deps);
+  const [pendientes, pool] = await Promise.all([deps.repo.asignacionesPendientes(), deps.repo.listarCastigos()]);
+  const actual = pendientes[0] ?? null;
+  return {
+    actual,
+    pendientes: pendientes.length,
+    bloqueado: hayBloqueo(pendientes),
+    puedeReroll: actual ? puedeReroll(actual, pool) : false,
+    pool,
+  };
+}
+
+async function asignacion({ repo }: Dependencias, id: string): Promise<AsignacionCastigo> {
+  const a = await repo.obtenerAsignacion(id);
+  if (!a) throw new ErrorDominio('El castigo no existe.');
+  return a;
+}
+
+/** Decide y guarda el resultado antes de que empiece la animación. */
+export async function girarRuleta(deps: Dependencias, asignacionId: string): Promise<AsignacionCastigo> {
+  const a = girar(await asignacion(deps, asignacionId), await deps.repo.listarCastigos(), deps.azar, deps.reloj());
+  await deps.repo.actualizarAsignacion(a);
+  return a;
+}
+
+export async function rerollRuleta(deps: Dependencias, asignacionId: string): Promise<AsignacionCastigo> {
+  const a = reroll(await asignacion(deps, asignacionId), await deps.repo.listarCastigos(), deps.azar, deps.reloj());
+  await deps.repo.actualizarAsignacion(a);
+  return a;
+}
+
+export async function cumplirCastigo(deps: Dependencias, asignacionId: string): Promise<AsignacionCastigo> {
+  const a = cumplir(await asignacion(deps, asignacionId), deps.reloj());
+  await deps.repo.actualizarAsignacion(a);
+  return a;
+}
+
+export async function nuevoCastigo({ repo, reloj, nuevoId }: Dependencias, texto: string): Promise<Castigo> {
+  const c = crearCastigo(texto, await repo.listarCastigos(), reloj(), nuevoId);
+  await repo.guardarCastigo(c);
+  return c;
+}
+
+/** Quita el castigo de la pool. Los castigos ya asignados conservan su texto. */
+export async function quitarCastigo({ repo }: Dependencias, id: string): Promise<void> {
+  await repo.archivarCastigo(id);
 }
